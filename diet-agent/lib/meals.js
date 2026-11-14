@@ -86,6 +86,11 @@ export function historyLines(userId) {
     .map((m) => `${m.date_consumed} ${m.time_consumed} ${m.type} ${m.procedence} ${m.name}`);
 }
 
+/** MCP tool get_last_meals: last N meals desc, formatted like option 1. */
+export function lastMeals(userId, limit = 10) {
+  return historyLines(userId).slice(0, limit);
+}
+
 /** MCP tool 1: favorites only, 30 most recent, compact fields. */
 export function recentFavorites(userId, limit = 30) {
   return mealsForUser(userId)

@@ -41,13 +41,14 @@ main.js   startup -> menu loop
   ├─ startup: credentials (env -> credentials.json -> prompt), LLM check (list/get model, non-generative;
   │           quota -> continue, other errors -> option 1 still works), ensure input/meals.json, USER_ID.md
   ├─ option 1: lib/meals.js historyLines()            (local filtering, no LLM)
-  └─ option 2: validate LLM -> start MCP lazily (stdio child: mcp_server.js)
+  └─ option 2/4: validate LLM -> start MCP lazily (stdio child: mcp_server.js)
                -> JSON tool loop (max 5 steps):
                     LLM replies {"tool": ..., "args": {...}}  -> MCP callTool -> compact TOOL_RESULT -> LLM
                     LLM replies {"final": "..."}              -> print the answer
-mcp_server.js   MCP server with two tools
+mcp_server.js   MCP server with three tools
   - get_recent_favorites(user_id): favorite == "true", the 30 most recent by date+time
   - get_monthly_summary(user_id):  per month: meal count, total kcal, highest- and lowest-priced meal
+  - get_last_meals(user_id):       the last 10 meals, newest first, as ready-to-print lines
 lib/meals.js    download, zod schema validation (numeric strings coerced), filters
 lib/llm.js      provider client (Gemini SDK, or OpenAI SDK for Groq/xAI), token estimate, retries, error classes
 ```
@@ -58,7 +59,7 @@ Behaviour notes:
   until the LLM has read the data through a tool.
 - Quota or rate-limit errors, requests that are too large, and auth errors print a clean
   message and return you to the menu.
-- If the LLM reply can't be parsed, the raw reply is printed.
+- If the LLM reply can't be parsed, the raw reply is printed and the LLM gets one chance to correct it.
 - Tool output is compact: short keys, capped at 8000 characters.
 
 Run the MCP server on its own with `npm run mcp` (stdio).
