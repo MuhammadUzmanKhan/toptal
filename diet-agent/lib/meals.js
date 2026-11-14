@@ -9,6 +9,8 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const INPUT_DIR = path.join(ROOT, 'input');
 export const MEALS_FILE = path.join(INPUT_DIR, 'meals.json');
 const SHORT_URL = 'https://topt.al/r6cvQM';
+const ALLOWED_HOSTS = ['git.toptal.com'];
+const MAX_BYTES = 20 * 1024 * 1024;
 
 // Spec says favorite is bool but also filters on str "true": accept both.
 const boolish = z.union([z.boolean(), z.string()]).transform((v) => String(v).toLowerCase() === 'true');
@@ -41,12 +43,16 @@ export async function ensureMealsFile(log = console.log) {
   if (fs.existsSync(MEALS_FILE)) return;
   log(`input/meals.json missing, resolving ${SHORT_URL} ...`);
   const head = await fetch(SHORT_URL, { redirect: 'manual' });
-  const target = head.headers.get('location') || SHORT_URL;
+  const target = new URL(head.headers.get('location') || SHORT_URL, SHORT_URL);
+  // Only follow the redirect to the known data host over https.
+  if (target.protocol !== 'https:' || !ALLOWED_HOSTS.includes(target.hostname))
+    throw new Error(`Refusing to download from unexpected location: ${target}`);
   log(`Downloading ${target} ...`);
-  const res = await fetch(target);
+  const res = await fetch(target, { redirect: 'error' });
   if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
   const text = await res.text();
-  JSON.parse(text); // fail before writing a broken file
+  if (text.length > MAX_BYTES) throw new Error('Downloaded file is unexpectedly large');
+  if (!Array.isArray(JSON.parse(text))) throw new Error('Downloaded data is not a JSON array'); // fail before writing
   fs.mkdirSync(INPUT_DIR, { recursive: true });
   fs.writeFileSync(MEALS_FILE, text);
   log(`Saved ${MEALS_FILE}`);
